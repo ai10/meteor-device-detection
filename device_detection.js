@@ -25,6 +25,8 @@
     this.unknownUserAgentDeviceType = 'phone';
 
     Session.setDefault('devices_user_type_preference', 'no_preference');
+    Session.setDefault('mimic_device_by_width', false);
+    Session.setDefault('device_screenwidth', 1600);
   };
 
   /*
@@ -156,7 +158,26 @@
   Device.prototype.isBot = function() {
     return this.isType('bot');
   };
-
+  
+  Device.prototype._setDeviceType = function (type) {
+    var screenLike = type;
+    if((type === 'desktop') && Session.equals('mimic_device_by_width', true)) {
+      var screenWidth = Session.get('device_screenwidth');
+      switch(true){
+        case (screenWidth <= 640):
+         screenLike = 'phone';
+         break
+        case ((screenWidth > 640) && (screenWidth < 1600)):
+         screenLike = 'tablet';
+         break
+        default:
+         break
+      }
+    }
+    this._type = screenLike;  
+    this._deps.changed();
+    return;
+  };
   /*
    * Automatically detect the type
    * Run when code first executes, can be run again later.
@@ -165,15 +186,14 @@
   Device.prototype.detectDevice = function() {
     if (!Session.equals('devices_user_type_preference', 'no_preference')) {
       // Don't override the user's preferences
-      this._type = Session.get('devices_user_type_preference');
-      this._deps.changed();
+      this._setDeviceType(Session.get('devices_user_type_preference'));
       return;
     }
 
     var ua = navigator.userAgent;
     var options = this;
 
-    this._type = (function() {
+    var agentType = (function() {
       if (!ua || ua === '') {
         // No user agent
         return options.emptyUserAgentDeviceType||'desktop';
@@ -226,8 +246,8 @@
         return options.unknownUserAgentDeviceType||'phone';
       }
     })();
-
-    this._deps.changed();
+    
+    this._setDeviceType(agentType);
   }
 
 
